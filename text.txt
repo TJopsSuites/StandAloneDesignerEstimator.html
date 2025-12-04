@@ -1,0 +1,1370 @@
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Standalone Designer & Estimator — WebXR Pro</title>
+
+    <style>
+      :root {
+        --bg: #f4f6fa; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+        --brand:#667eea; --brand-dark:#4c5bd5; --surface:#0e1726;
+        --accent:#2c3e50; --accent-2:#34495e; --danger:#e74c3c; --success:#10b981; --warn:#f59e0b;
+      }
+      *{box-sizing:border-box}
+      body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;margin:0;background:var(--bg);color:var(--text)}
+      .container{max-width:1400px;margin:auto;background:var(--card);min-height:100vh}
+      .header{background:var(--accent-2);color:#fff;padding:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}
+      .nav-tabs{display:flex;flex-wrap:wrap;background:var(--accent)}
+      .nav-tab{padding:12px 16px;color:#fff;background:transparent;border:0;cursor:pointer}
+      .nav-tab.active{background:#fff;color:var(--accent);border-top-left-radius:8px;border-top-right-radius:8px}
+      .tab-content{display:none;padding:20px}.tab-content.active{display:block}
+      .card{background:var(--card);border-radius:12px;padding:20px;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-bottom:20px}
+      .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+      .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+      @media(max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr}}
+      label{display:block;margin:8px 0;font-size:14px}
+      input[type="number"],input[type="text"],select,textarea{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff}
+      .scene-3d{height:420px;background:var(--surface);border-radius:12px;overflow:hidden;position:relative}
+      .btn{padding:10px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:600}
+      .btn-primary{background:var(--brand);color:#fff}.btn-primary:hover{background:var(--brand-dark)}
+      .btn-secondary{background:var(--accent-2);color:#fff}
+      .btn-outline{background:transparent;border:1px solid #ddd}
+      .btn-danger{background:var(--danger);color:#fff}
+      .muted{color:var(--muted);font-size:13px;margin-top:8px}
+      .results-box{background:#f8f9fa;padding:12px;border-radius:12px;border:1px solid #eee}
+      .material-option{display:inline-block;padding:8px 12px;border:2px solid #ccc;margin:4px;border-radius:8px;cursor:pointer}
+      .material-option.selected{border-color:var(--brand);background:#eef2ff}
+      .invoice-table{width:100%;border-collapse:collapse;margin-top:10px}
+      .invoice-table th,.invoice-table td{border:1px solid #ddd;padding:8px}
+      .invoice-table th{background:#f0f4ff;text-align:left}
+      .tag{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;background:#eef2ff;color:var(--brand)}
+      .hr{height:1px;background:#eee;margin:12px 0}
+      .row{display:flex;gap:16px;flex-wrap:wrap}
+      .xr-badge{position:absolute;right:10px;top:10px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 8px;font-size:12px;backdrop-filter:blur(6px)}
+      .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#ecfeff;color:#0369a1;font-size:12px}
+      .small{font-size:12px;color:var(--muted)}
+      .banner { padding:10px 12px; border-radius:10px; margin:12px 0; display:none }
+      .banner.warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e }
+      .banner.err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b }
+      .banner.ok { background:#ecfdf5; border:1px solid #bbf7d0; color:#065f46 }
+      .banner .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+
+    <!-- Three.js core -->
+    <script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.157.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- WebXR + GLTF helpers via module (preferred when online/served) -->
+    <script type="module">
+      try {
+        const [
+          VRButtonMod, ARButtonMod, XRControllerModelFactoryMod, XRHandModelFactoryMod,
+          GLTFLoaderMod, Line2Mod, LineMaterialMod, LineGeometryMod
+        ] = await Promise.all([
+          import('https://esm.run/three@0.157.0/examples/jsm/webxr/VRButton.js'),
+          import('https://esm.run/three@0.157.0/examples/jsm/webxr/ARButton.js'),
+          import('https://esm.run/three@0.157.0/examples/jsm/webxr/XRControllerModelFactory.js'),
+          import('https://esm.run/three@0.157.0/examples/jsm/webxr/XRHandModelFactory.js'),
+          import('https://esm.run/three@0.157.0/examples/jsm/loaders/GLTFLoader.js'),
+          import('https://esm.run/three@0.157.0/examples/jsm/lines/Line2.js'),
+          import('https://esm.run/three@0.157.0/examples/jsm/lines/LineMaterial.js'),
+          import('https://esm.run/three@0.157.0/examples/jsm/lines/LineGeometry.js'),
+        ]);
+
+        window.__XRHelpers = {
+          VRButton: VRButtonMod.VRButton,
+          ARButton: ARButtonMod.ARButton,
+          XRControllerModelFactory: XRControllerModelFactoryMod.XRControllerModelFactory,
+          XRHandModelFactory: XRHandModelFactoryMod.XRHandModelFactory,
+          GLTFLoader: GLTFLoaderMod.GLTFLoader,
+          Line2: Line2Mod.Line2,
+          LineMaterial: LineMaterialMod.LineMaterial,
+          LineGeometry: LineGeometryMod.LineGeometry
+        };
+        window.__ModulesOK = true;
+      } catch (e) {
+        // Module imports failed; we'll try classic fallbacks below
+        window.__ModulesOK = false;
+        console.warn('ESM module load failed; falling back to classic loaders...', e);
+      }
+      // Signal readiness to banner system
+      window.dispatchEvent(new Event('modules-checked'));
+    </script>
+
+    <!-- Classic fallbacks (auto-load only if modules missing) -->
+    <script>
+      (function ensureFallbacks(){
+        function addScript(src, onload){
+          var s = document.createElement('script'); s.src = src; s.async = true;
+          s.onload = onload; s.onerror = function(){ console.warn('Failed to load', src); };
+          document.head.appendChild(s);
+        }
+        function needGLTF(){ return !window.__XRHelpers || !window.__XRHelpers.GLTFLoader; }
+        function needLines(){ return !window.__XRHelpers || !window.__XRHelpers.Line2; }
+        function expose(namespaceKey, obj){
+          if (!window.__XRHelpers) window.__XRHelpers = {};
+          Object.assign(window.__XRHelpers, obj);
+        }
+
+        // When modules check completes, optionally load fallbacks
+        window.addEventListener('modules-checked', function(){
+          if (needGLTF()){
+            addScript('https://unpkg.com/three@0.157.0/examples/js/loaders/GLTFLoader.js', function(){
+              if (THREE && THREE.GLTFLoader){ expose('GLTFLoader', { GLTFLoader: THREE.GLTFLoader }); console.log('Fallback GLTFLoader ready'); }
+            });
+          }
+          if (needLines()){
+            addScript('https://unpkg.com/three@0.157.0/examples/js/lines/Line2.js', function(){
+              if (THREE && THREE.Line2){ expose('Line2', { Line2: THREE.Line2 }); }
+            });
+            addScript('https://unpkg.com/three@0.157.0/examples/js/lines/LineMaterial.js', function(){
+              if (THREE && THREE.LineMaterial){ expose('LineMaterial', { LineMaterial: THREE.LineMaterial }); }
+            });
+            addScript('https://unpkg.com/three@0.157.0/examples/js/lines/LineGeometry.js', function(){
+              if (THREE && THREE.LineGeometry){ expose('LineGeometry', { LineGeometry: THREE.LineGeometry }); }
+            });
+          }
+          // XR buttons aren't strictly required because we start sessions manually, but try to expose if present
+          if (!window.__XRHelpers || !window.__XRHelpers.VRButton){
+            // Optional; not critical for functionality
+          }
+        });
+      })();
+    </script>
+
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div>
+          <h1>🏗️ Standalone 3D Designer & Estimator — WebXR Pro</h1>
+          <p>Offline-friendly with robust error handling, VR/AR, locomotion, controller interactions, and remodeling workspaces</p>
+        </div>
+        <div class="row">
+          <button class="btn btn-outline" onclick="exportProject()">Export Project</button>
+          <button class="btn btn-outline" onclick="importProject()">Import Project</button>
+          <button class="btn btn-primary" onclick="saveEstimateToProjects()">Save Estimate</button>
+        </div>
+      </div>
+
+      <!-- Runtime banners -->
+      <div id="banner-container" style="padding:0 20px;">
+        <div id="banner-status" class="banner ok"></div>
+        <div id="banner-warn" class="banner warn"></div>
+        <div id="banner-error" class="banner err"></div>
+      </div>
+
+      <div class="nav-tabs">
+        <button class="nav-tab active" onclick="switchTab(event,'deck-designer')">🎨 Deck Designer</button>
+        <button class="nav-tab" onclick="switchTab(event,'multi-service')">🏠 All Services</button>
+        <button class="nav-tab" onclick="switchTab(event,'remodeling')">🔧 Remodeling Workspace</button>
+        <button class="nav-tab" onclick="switchTab(event,'client-portal')">👥 Client Portal</button>
+        <button class="nav-tab" onclick="switchTab(event,'projects')">📋 My Projects</button>
+        <button class="nav-tab" onclick="switchTab(event,'proposal')">📝 Proposals</button>
+        <button class="nav-tab" onclick="switchTab(event,'permit')">📐 Permit Plans</button>
+        <button class="nav-tab" onclick="switchTab(event,'invoice')">💰 Invoices</button>
+        <button class="nav-tab" onclick="switchTab(event,'settings')">⚙️ Settings</button>
+      </div>
+
+      <!-- Deck Designer -->
+      <div id="deck-designer" class="tab-content active">
+        <h2>Interactive Deck Designer & Estimator (3D + WebXR)</h2>
+        <div class="grid-2">
+          <div>
+            <div class="card">
+              <h3>📐 Dimensions</h3>
+              <div class="grid-3">
+                <label>Length (ft) <input type="number" id="deck-length" value="20" min="4" onchange="rebuild3D();saveDeckState();updateDimLabel()"></label>
+                <label>Width (ft) <input type="number" id="deck-width" value="12" min="4" onchange="rebuild3D();saveDeckState();updateDimLabel()"></label>
+                <label>Height (ft) <input type="number" id="deck-height" value="8" min="0" onchange="rebuild3D();saveDeckState()"></label>
+              </div>
+              <label>Shape
+                <select id="deck-shape" onchange="rebuild3D();saveDeckState()">
+                  <option value="rectangle">Rectangle</option>
+                  <option value="l-shape">L-Shape</option>
+                  <option value="multi-level">Multi-Level</option>
+                </select>
+              </label>
+              <div class="row">
+                <button class="btn btn-outline" onclick="addLevel()">➕ Add Level</button>
+                <button class="btn btn-outline" onclick="resetLevels()">🔄 Reset Levels</button>
+              </div>
+              <div id="levels-panel" class="muted">Levels: 1</div>
+            </div>
+
+            <div class="card">
+              <h3>🎨 Materials & Features</h3>
+              <div class="material-selector">
+                <div class="material-option selected" onclick="selectMaterial(event,'PT')">Pressure Treated</div>
+                <div class="material-option" onclick="selectMaterial(event,'Cedar')">Cedar</div>
+                <div class="material-option" onclick="selectMaterial(event,'Composite')">Composite</div>
+              </div>
+              <div class="grid-3">
+                <label>Railing
+                  <select id="railing-type" onchange="rebuild3D();saveDeckState()">
+                    <option value="none">None</option>
+                    <option value="wood" selected>Wood</option>
+                    <option value="metal">Metal</option>
+                    <option value="glass">Glass</option>
+                  </select>
+                </label>
+                <label>Stairs
+                  <select id="stairs-type" onchange="rebuild3D();saveDeckState()">
+                    <option value="none">None</option>
+                    <option value="straight" selected>Straight</option>
+                    <option value="wrap">Wrap</option>
+                  </select>
+                </label>
+                <label>Steps <input type="number" id="deck-stair-steps" value="6" min="0" onchange="rebuild3D();saveDeckState()"></label>
+              </div>
+              <div class="row">
+                <label><input type="checkbox" id="deck-pergola" onchange="rebuild3D();saveDeckState()"> Pergola (+$2500)</label>
+                <label><input type="checkbox" id="deck-bench" onchange="rebuild3D();saveDeckState()"> Bench (+$800)</label>
+                <label><input type="checkbox" id="deck-lighting" onchange="saveDeckState()"> LED Lighting (+$600)</label>
+              </div>
+              <div class="small">VR: Left stick = move, Right stick = snap turn, Grip = grab, Both grips = scale/rotate.</div>
+            </div>
+
+            <div class="card">
+              <h3>🧮 Regional Rates</h3>
+              <div class="grid-3">
+                <label>Labor ($/sqft) <input type="number" id="rate-labor" value="12"></label>
+                <label>Decking ($/sqft) <input type="number" id="rate-decking" value="1.25"></label>
+                <label>Railing ($/LF) <input type="number" id="rate-railing" value="4.5"></label>
+                <label>Stairs ($/step) <input type="number" id="rate-stairs" value="12"></label>
+                <label>Hardware ($/sqft) <input type="number" id="rate-hardware" value="0.5"></label>
+                <label>Delivery % <input type="number" id="rate-delivery" value="5"></label>
+                <label>Overhead % <input type="number" id="oh-pct" value="15"></label>
+                <label>Profit % <input type="number" id="profit-pct" value="20"></label>
+                <label>Waste % <input type="number" id="waste-pct" value="10"></label>
+              </div>
+              <div class="row">
+                <button class="btn btn-outline" onclick="applyPresetRates('urban')">Urban Preset</button>
+                <button class="btn btn-outline" onclick="applyPresetRates('suburban')">Suburban Preset</button>
+                <button class="btn btn-outline" onclick="applyPresetRates('rural')">Rural Preset</button>
+              </div>
+            </div>
+
+            <div class="row">
+              <button class="btn btn-primary" onclick="calculateDeckEstimate()">📊 Calculate Estimate</button>
+              <button class="btn btn-secondary" onclick="snapshot3D()">📸 Snapshot</button>
+              <button id="xr-enter-btn" class="btn btn-outline" onclick="toggleXRMenu()">🕶️ XR Options</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <h3>👁️ Live 3D Preview</h3>
+              <div id="deck-3d" class="scene-3d">
+                <div id="xr-state" class="xr-badge">XR: idle</div>
+              </div>
+              <div class="row">
+                <button class="btn btn-outline" onclick="resetCamera()">Reset Camera</button>
+                <button class="btn btn-outline" onclick="toggleGrid()">Toggle Grid</button>
+                <button class="btn btn-outline" onclick="toggleWireframe()">Wireframe</button>
+                <label class="small"><input type="checkbox" id="snap-turn" checked> Snap turn</label>
+                <label class="small"><input type="checkbox" id="smooth-move" checked> Smooth move</label>
+              </div>
+              <div id="deck-dimensions-display" class="muted">20' × 12' Deck (240 sq ft)</div>
+            </div>
+            <div id="deck-results" class="results-box" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Multi-Service -->
+      <div id="multi-service" class="tab-content">
+        <h2>Multi-Dimensional Project Designer</h2>
+        <p class="muted">Exterior, Kitchen, and Bathroom 3D previews and estimators.</p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>🏡 Exterior</h3>
+            <div class="grid-3">
+              <label>Wall Width (ft) <input type="number" id="ext-wall-width" value="30" onchange="rebuildExterior3D()"></label>
+              <label>Wall Height (ft) <input type="number" id="ext-wall-height" value="10" onchange="rebuildExterior3D()"></label>
+              <label>Siding
+                <select id="ext-siding" onchange="rebuildExterior3D()">
+                  <option value="vinyl">Vinyl</option>
+                  <option value="fiber-cement">Fiber Cement</option>
+                  <option value="wood">Wood</option>
+                  <option value="brick">Brick</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="calcExteriorEstimate()">Estimate Exterior</button>
+          </div>
+          <div class="card">
+            <h3>👁️ Exterior 3D Preview</h3>
+            <div id="exterior-3d" class="scene-3d"></div>
+            <div id="exterior-results" class="results-box" style="display:none;"></div>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>🍽️ Kitchen</h3>
+            <div class="grid-3">
+              <label>Room Length (ft) <input type="number" id="kit-length" value="16" onchange="rebuildKitchen3D()"></label>
+              <label>Room Width (ft) <input type="number" id="kit-width" value="12" onchange="rebuildKitchen3D()"></label>
+              <label>Cabinet Type
+                <select id="kit-cabs" onchange="rebuildKitchen3D()">
+                  <option value="stock">Stock</option>
+                  <option value="semi-custom">Semi-Custom</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+            </div>
+            <label>Countertop
+              <select id="kit-counter" onchange="saveKitchenState()">
+                <option value="laminate">Laminate</option>
+                <option value="granite">Granite</option>
+                <option value="quartz">Quartz</option>
+              </select>
+            </label>
+            <button class="btn btn-primary" onclick="calcKitchenEstimate()">Estimate Kitchen</button>
+          </div>
+          <div class="card">
+            <h3>👁️ Kitchen 3D Preview</h3>
+            <div id="kitchen-3d" class="scene-3d"></div>
+            <div id="kitchen-results" class="results-box" style="display:none;"></div>
+          </div>
+        </div>
+        <div class="hr"></div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>🛁 Bathroom</h3>
+            <div class="grid-3">
+              <label>Room Length (ft) <input type="number" id="bath-length" value="10" onchange="rebuildBath3D()"></label>
+              <label>Room Width (ft) <input type="number" id="bath-width" value="8" onchange="rebuildBath3D()"></label>
+              <label>Shower Type
+                <select id="bath-shower" onchange="rebuildBath3D()">
+                  <option value="tub-shower">Tub/Shower</option>
+                  <option value="walk-in">Walk-in</option>
+                  <option value="custom-tile">Custom Tile</option>
+                </select>
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="calcBathEstimate()">Estimate Bath</button>
+          </div>
+          <div class="card">
+            <h3>👁️ Bathroom 3D Preview</h3>
+            <div id="bath-3d" class="scene-3d"></div>
+            <div id="bath-results" class="results-box" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Remodeling Workspace -->
+      <div id="remodeling" class="tab-content">
+        <h2>Remodeling Workspace</h2>
+        <p class="muted">Place 3D fixtures/assets with GLTF import. Works offline with fallbacks if internet is unavailable.</p>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Rooms</h3>
+            <div class="grid-3">
+              <label>Room Name <input id="rm-name" type="text" placeholder="Master Bath"></label>
+              <label>Length (ft) <input id="rm-length" type="number" value="12"></label>
+              <label>Width (ft) <input id="rm-width" type="number" value="10"></label>
+            </div>
+            <label>Scope Notes
+              <textarea id="rm-scope" rows="5" placeholder="Demo, framing, plumbing, electrical, finishes..."></textarea>
+            </label>
+            <div class="row">
+              <button class="btn btn-primary" onclick="addRoom()">Add/Update Room</button>
+              <button class="btn btn-outline" onclick="clearRooms()">Clear Rooms</button>
+            </div>
+            <div class="hr"></div>
+            <h3>Assets (GLTF)</h3>
+            <div id="gltf-banner" class="banner warn" style="display:none"></div>
+            <div class="row">
+              <input id="gltf-url" type="text" placeholder="https://domain/model.glb" style="flex:1 1 auto;">
+              <button class="btn btn-secondary" onclick="addAssetFromURL()">Add Asset</button>
+            </div>
+            <p class="small">Tip: If offline, host GLB files locally and open via localhost. Grip to move; both grips to scale/rotate in VR.</p>
+          </div>
+          <div class="card">
+            <h3>Remodel 3D Preview</h3>
+            <div id="remodel-3d" class="scene-3d"></div>
+            <div id="remodel-list" class="results-box"><span class="small">No rooms yet.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Client/Projects/Proposal/Permit/Invoice/Settings kept (same as previous version) -->
+      <div id="client-portal" class="tab-content">
+        <h2>Client Portal</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Client Info</h3>
+            <label>Name <input id="client-name" type="text" placeholder="Client Name"></label>
+            <label>Email <input id="client-email" type="text" placeholder="client@email.com"></label>
+            <label>Phone <input id="client-phone" type="text" placeholder="(555) 555-1234"></label>
+            <label>Address <input id="client-address" type="text" placeholder="123 Main St, City, ST"></label>
+            <button class="btn btn-primary" onclick="saveClient()">Save Client</button>
+            <button class="btn btn-outline" onclick="clearClients()">Clear Clients</button>
+          </div>
+          <div class="card">
+            <h3>Clients</h3>
+            <ul id="client-list" style="list-style:none;padding:0;margin:0"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div id="projects" class="tab-content">
+        <h2>My Projects</h2>
+        <div class="row">
+          <div class="card" style="flex:2 1 480px;">
+            <h3>Saved Projects</h3>
+            <ul id="project-list" style="list-style:none;padding:0;margin:0"></ul>
+            <div class="hr"></div>
+            <button class="btn btn-outline" onclick="clearProjects()">Clear Projects</button>
+            <button class="btn btn-primary" onclick="exportAll()">Export All</button>
+            <input type="file" id="import-file" accept="application/json" onchange="handleImportFile(event)">
+          </div>
+          <div class="card" style="flex:1 1 280px;">
+            <h3>KPIs</h3>
+            <div>Total Projects: <span id="kpi-projects" class="pill">0</span></div>
+            <div>Avg $/sqft: <span id="kpi-psf" class="pill">$0.00</span></div>
+            <div>Last Saved: <span id="kpi-last" class="pill">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="proposal" class="tab-content">
+        <h2>Proposal Builder</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Details</h3>
+            <label>Client <input id="prop-client" type="text" placeholder="Client"></label>
+            <label>Title <input id="prop-title" type="text" placeholder="Project Title"></label>
+            <label>Scope of Work <textarea id="prop-scope" rows="6" placeholder="Describe materials, methods, and timeline."></textarea></label>
+            <button class="btn btn-primary" onclick="buildProposal()">Build Proposal</button>
+            <button class="btn btn-outline" onclick="exportPDF()">Export PDF</button>
+          </div>
+          <div class="card">
+            <h3>Preview</h3>
+            <div id="proposal-preview" class="results-box"><p class="muted">Build a proposal to preview here.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="permit" class="tab-content">
+        <h2>Permit Plans & Compliance</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Parameters</h3>
+            <div class="grid-3">
+              <label>Jurisdiction <input id="perm-juris" type="text" placeholder="Local Jurisdiction"></label>
+              <label>Code <input id="perm-code" type="text" placeholder="IRC 2018"></label>
+              <label>Guard Height (in) <input id="perm-guard" type="number" value="42"></label>
+              <label>Footing Ø (in) <input id="perm-footing-dia" type="number" value="18"></label>
+              <label>Footing Depth (in) <input id="perm-footing-depth" type="number" value="36"></label>
+              <label>Joist Spacing (in) <input id="perm-joist-spacing" type="number" value="16"></label>
+              <label>Beam Size <input id="perm-beam" type="text" value="(2) 2x10 PT"></label>
+              <label>Ledger Attachment <input id="perm-ledger" type="text" value="Standard attachment"></label>
+            </div>
+            <button class="btn btn-primary" onclick="buildPermitPlan()">Build Plan Notes</button>
+          </div>
+          <div class="card">
+            <h3>Compliance Notes</h3>
+            <div id="permit-preview" class="results-box"><p class="muted">Generate plan notes to view compliance here.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="invoice" class="tab-content">
+        <h2>Invoice Generator</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Header</h3>
+            <div class="grid-3">
+              <label>Client <input id="invoice-client" type="text" placeholder="Client Name"></label>
+              <label>Invoice # <input id="invoice-number" type="text" placeholder="INV-1001"></label>
+              <label>Tax % <input id="invoice-tax" type="number" value="8.5"></label>
+            </div>
+            <label>Discount ($) <input id="invoice-discount" type="number" value="0"></label>
+            <h3 style="margin-top:16px;">Line Items</h3>
+            <table id="line-items" class="invoice-table">
+              <thead><tr><th>Description</th><th>Qty</th><th>Unit $</th><th>Amount</th><th>Action</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div style="margin-top:10px">
+              <button class="btn btn-outline" onclick="addLineItem()">➕ Add Line</button>
+              <button class="btn btn-outline" onclick="prefillFromEstimate()">Prefill From Estimate</button>
+            </div>
+            <div class="hr"></div>
+            <button class="btn btn-primary" onclick="generateInvoice()">Generate</button>
+            <button class="btn btn-secondary" onclick="saveInvoice()">Save</button>
+          </div>
+          <div class="card">
+            <h3>Preview</h3>
+            <div id="invoice-preview" class="results-box"><p class="muted">Generate an invoice to preview here.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="settings" class="tab-content">
+        <h2>Settings</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Renderer</h3>
+            <label><input type="checkbox" id="settings-grid" checked onchange="applySettings()"> Show Grid</label>
+            <label><input type="checkbox" id="settings-ambient" checked onchange="applySettings()"> Ambient Light</label>
+            <label>Theme
+              <select id="settings-theme" onchange="applyTheme()">
+                <option value="light" selected>Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          </div>
+          <div class="card">
+            <h3>Company Info</h3>
+            <label>Company Name <input id="company-name" type="text" placeholder="Your Company"></label>
+            <label>Logo URL <input id="company-logo" type="text" placeholder="https://..."></label>
+            <button class="btn btn-primary" onclick="saveCompany()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /* ---------------- Banner helpers ---------------- */
+      function setBanner(id, text, show=true){
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text;
+        el.style.display = show && text ? 'block' : 'none';
+      }
+      function clearBanners(){
+        setBanner('banner-status','',false);
+        setBanner('banner-warn','',false);
+        setBanner('banner-error','',false);
+      }
+
+      /* ---------------- Tabs ---------------- */
+      function switchTab(evt, id) {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        evt.target.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        ['deck-3d','exterior-3d','kitchen-3d','bath-3d','remodel-3d'].forEach(on3DResize);
+      }
+
+      /* ---------------- Shared 3D ---------------- */
+      const viewers = {};
+      const clock = new THREE.Clock();
+
+      function createViewer(containerId) {
+        const container = document.getElementById(containerId);
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0e1726);
+
+        const aspect = Math.max(1e-3, container.clientWidth / container.clientHeight);
+        const camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 3000);
+        camera.position.set(8, 8, 12);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.xr.enabled = true;
+        container.innerHTML = '';
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.enablePan = true; controls.enableZoom = true;
+        controls.target.set(0, 0, 0);
+
+        // Lights
+        const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9); scene.add(hemi);
+        const dir = new THREE.DirectionalLight(0xffffff, 1.0); dir.position.set(10, 15, 10); dir.castShadow = true; scene.add(dir);
+
+        // Grid/Floor
+        const grid = new THREE.GridHelper(100, 100, 0x888888, 0x444444); grid.visible = true; scene.add(grid);
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x222 }));
+        floor.rotation.x = -Math.PI/2; floor.position.y = 0; floor.receiveShadow = true; scene.add(floor);
+
+        // Groups
+        const group = new THREE.Group(); scene.add(group);
+
+        // XR helpers
+        const xr = window.__XRHelpers || {};
+        const controller1 = renderer.xr.getController(0);
+        const controller2 = renderer.xr.getController(1);
+        scene.add(controller1); scene.add(controller2);
+
+        // Controller models
+        try {
+          if (xr.XRControllerModelFactory){
+            const controllerModelFactory = new xr.XRControllerModelFactory();
+            const grip1 = renderer.xr.getControllerGrip(0); grip1.add(controllerModelFactory.createControllerModel(grip1)); scene.add(grip1);
+            const grip2 = renderer.xr.getControllerGrip(1); grip2.add(controllerModelFactory.createControllerModel(grip2)); scene.add(grip2);
+          }
+        } catch(e){ console.warn('Controller models unavailable', e); }
+
+        // Teleport rays (if Line2 fallback available)
+        let ray1=null, ray2=null;
+        try {
+          if (xr.Line2 && xr.LineMaterial && xr.LineGeometry){
+            const mat = new xr.LineMaterial({ color: 0x66ccff, linewidth: 0.003 });
+            function makeRay(){
+              const g = new xr.LineGeometry(); g.setPositions([0,0,0, 0,0,-1.5]);
+              const l = new xr.Line2(g, mat); l.computeLineDistances(); return l;
+            }
+            ray1 = makeRay(); controller1.add(ray1);
+            ray2 = makeRay(); controller2.add(ray2);
+          }
+        } catch(e){ console.warn('Line2 unavailable; rays disabled'); }
+
+        // AR reticle
+        const reticle = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({ color: 0x44ff88 }));
+        reticle.visible = false; scene.add(reticle);
+
+        // Locomotion and grabbing
+        let grabState = { left: false, right: false, initial: null };
+        controller1.addEventListener('squeezestart', ()=>{ grabState.left = true; grabState.initial=null; });
+        controller1.addEventListener('squeezeend', ()=>{ grabState.left = false; grabState.initial=null; });
+        controller2.addEventListener('squeezestart', ()=>{ grabState.right = true; grabState.initial=null; });
+        controller2.addEventListener('squeezeend', ()=>{ grabState.right = false; grabState.initial=null; });
+
+        // Gamepad polling
+        function handleGamepads(){
+          const session = renderer.xr.getSession(); if (!session) return;
+          for (const src of session.inputSources){
+            const gp = src.gamepad; if (!gp || !gp.axes) continue;
+            const axes = gp.axes;
+            if (axes.length >= 2 && src.handedness==='left') onThumbstick(axes[0], axes[1], 'left', renderer, camera);
+            if (axes.length >= 4 && src.handedness==='right') onThumbstick(axes[2], axes[3], 'right', renderer, camera);
+          }
+        }
+
+        // Simple teleport on select end
+        controller1.addEventListener('selectend', ()=>tryTeleport(controller1, floor, renderer, camera));
+        controller2.addEventListener('selectend', ()=>tryTeleport(controller2, floor, renderer, camera));
+
+        // Render loop
+        renderer.setAnimationLoop(()=>{
+          handleGamepads();
+          handleTwoHandGrab(grabState, controller1, controller2, 'deck-3d');
+          controls.update();
+          renderer.render(scene, camera);
+        });
+
+        viewers[containerId] = { container, scene, camera, renderer, controls, group, grid, floor, reticle,
+          controller1, controller2, ray1, ray2, deckRoot: null, assets: [], gltfLoader: null };
+        return viewers[containerId];
+      }
+
+      function onThumbstick(x, y, hand, renderer, camera){
+        const snap = document.getElementById('snap-turn')?.checked;
+        const smooth = document.getElementById('smooth-move')?.checked;
+        const speed = 3.0;
+        const dt = Math.min(clock.getDelta(), 0.05);
+        const xrCam = renderer.xr.getCamera(camera);
+        const rig = xrCam.parent || camera;
+
+        if (smooth && Math.abs(y) > 0.15){
+          const dir = new THREE.Vector3(0,0,-1).applyQuaternion(xrCam.quaternion); dir.y = 0; dir.normalize();
+          rig.position.addScaledVector(dir, y * speed * dt);
+        }
+        if (snap && hand==='right' && Math.abs(x) > 0.8){
+          const sign = x > 0 ? -1 : 1;
+          rig.rotation.y += sign * THREE.MathUtils.degToRad(30);
+        }
+      }
+      function tryTeleport(ctrl, target, renderer, camera){
+        const origin = new THREE.Vector3(); ctrl.getWorldPosition(origin);
+        const dir = new THREE.Vector3(0,0,-1).applyQuaternion(ctrl.quaternion).normalize();
+        const raycaster = new THREE.Raycaster(origin, dir);
+        const hit = raycaster.intersectObject(target);
+        if (!hit || !hit.length) return;
+        const p = hit[0].point;
+        const xrCam = renderer.xr.getCamera(camera);
+        const rig = xrCam.parent || camera;
+        rig.position.set(p.x, rig.position.y, p.z);
+      }
+      function handleTwoHandGrab(state, ctrl1, ctrl2, viewerId){
+        const v = viewers[viewerId]; if (!v || !v.deckRoot) return;
+        const deck = v.deckRoot;
+        if (state.left && state.right){
+          const lp = new THREE.Vector3(); const rp = new THREE.Vector3();
+          ctrl1.getWorldPosition(lp); ctrl2.getWorldPosition(rp);
+          const mid = lp.clone().add(rp).multiplyScalar(0.5);
+          const dist = lp.distanceTo(rp);
+          if (!state.initial){
+            // Store baseline
+            const dir0 = rp.clone().sub(lp);
+            state.initial = {
+              mid, dist, deckPos: deck.position.clone(),
+              deckScale: deck.scale.x,
+              yaw0: Math.atan2(dir0.x, dir0.z),
+              deckYaw: deck.rotation.y
+            };
+            return;
+          }
+          const scale = THREE.MathUtils.clamp(dist / (state.initial.dist || dist), 0.3, 3.0);
+          const dir = rp.clone().sub(lp);
+          const yaw = Math.atan2(dir.x, dir.z);
+          const dyaw = yaw - state.initial.yaw0;
+
+          const deltaMid = mid.clone().sub(state.initial.mid);
+          deck.position.copy(state.initial.deckPos.clone().add(deltaMid));
+          deck.scale.setScalar(state.initial.deckScale * scale);
+          deck.rotation.y = state.initial.deckYaw + dyaw;
+        } else if (state.left || state.right){
+          // Single hand move
+          const ctrl = state.left ? ctrl1 : ctrl2;
+          const p = new THREE.Vector3(); ctrl.getWorldPosition(p);
+          deck.position.lerp(new THREE.Vector3(p.x, deck.position.y, p.z), 0.35);
+        }
+      }
+
+      function on3DResize(containerId) {
+        const v = viewers[containerId]; if (!v) return;
+        const { container, camera, renderer } = v;
+        camera.aspect = Math.max(1e-3, container.clientWidth / container.clientHeight);
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+      }
+      function snapshot3D() {
+        const v = viewers['deck-3d']; if (!v) return;
+        const url = v.renderer.domElement.toDataURL('image/png');
+        const a = document.createElement('a'); a.href = url; a.download = 'deck_snapshot.png'; a.click();
+      }
+      function resetCamera() {
+        const v = viewers['deck-3d']; if (!v) return;
+        v.camera.position.set(8,8,12); v.controls.target.set(0,0,0); v.controls.update();
+      }
+      function toggleGrid() { const v = viewers['deck-3d']; if (v) v.grid.visible = !v.grid.visible; }
+      function toggleWireframe() {
+        const v = viewers['deck-3d']; if (!v) return;
+        v.group.traverse(obj => { if (obj.isMesh && obj.material){ obj.material.wireframe = !obj.material.wireframe; obj.material.needsUpdate = true; }});
+      }
+      function updateXRBadge(text){ const el = document.getElementById('xr-state'); if (el) el.textContent = `XR: ${text}`; }
+
+      /* ---------------- Deck 3D ---------------- */
+      function materialForSelected(){
+        const mat = window.selectedMaterial || 'PT';
+        if (mat==='PT') return new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness:0.8, metalness:0.1 });
+        if (mat==='Cedar') return new THREE.MeshStandardMaterial({ color: 0xD2691E, roughness:0.8, metalness:0.1 });
+        return new THREE.MeshStandardMaterial({ color: 0x6d6d6d, roughness:0.6, metalness:0.3 });
+      }
+      function initDeck3D(){
+        const v = createViewer('deck-3d');
+        const deckRoot = new THREE.Group();
+        v.scene.add(deckRoot);
+        v.deckRoot = deckRoot;
+        rebuild3D();
+      }
+      function updateDimLabel(){
+        const length = +document.getElementById('deck-length').value;
+        const width = +document.getElementById('deck-width').value;
+        document.getElementById('deck-dimensions-display').textContent = `${length}' × ${width}' Deck (${(length*width).toFixed(0)} sq ft)`;
+      }
+      let levels = [{ length: 20, width: 12, height: 8, yOffset: 0 }];
+      function addLevel(){
+        const l = +document.getElementById('deck-length').value;
+        const w = +document.getElementById('deck-width').value;
+        const h = +document.getElementById('deck-height').value;
+        levels.push({ length: Math.max(4, l*0.7), width: Math.max(4, w*0.7), height: h, yOffset: (levels.length)*0.3 });
+        document.getElementById('levels-panel').textContent = `Levels: ${levels.length}`;
+        rebuild3D();
+      }
+      function resetLevels(){
+        levels = [{ length: +document.getElementById('deck-length').value, width: +document.getElementById('deck-width').value, height: +document.getElementById('deck-height').value, yOffset: 0 }];
+        document.getElementById('levels-panel').textContent = `Levels: ${levels.length}`;
+        rebuild3D();
+      }
+      function rebuild3D(){
+        const v = viewers['deck-3d']; if (!v) return;
+        v.group.clear();
+        if (v.deckRoot) v.deckRoot.clear();
+
+        const shape = document.getElementById('deck-shape').value;
+        const deckMat = materialForSelected();
+        const s = 0.3;
+        const parent = v.deckRoot || v.group;
+
+        levels.forEach((lvl, idx) => {
+          const length = idx===0 ? +document.getElementById('deck-length').value : lvl.length;
+          const width = idx===0 ? +document.getElementById('deck-width').value : lvl.width;
+          const height = idx===0 ? +document.getElementById('deck-height').value : lvl.height;
+
+          if (shape === 'rectangle') {
+            const geo = new THREE.BoxGeometry(length*s, 0.2, width*s);
+            const mesh = new THREE.Mesh(geo, deckMat.clone());
+            mesh.position.set(0, (height*s) + idx*0.25 + lvl.yOffset, 0);
+            mesh.castShadow = mesh.receiveShadow = true;
+            parent.add(mesh);
+            addRailing(mesh, length, width, height*s + idx*0.25 + lvl.yOffset);
+          } else if (shape === 'l-shape') {
+            const geo1 = new THREE.BoxGeometry(length*s*0.6, 0.2, width*s);
+            const geo2 = new THREE.BoxGeometry(length*s, 0.2, width*s*0.6);
+            const m1 = new THREE.Mesh(geo1, deckMat.clone());
+            const m2 = new THREE.Mesh(geo2, deckMat.clone());
+            m1.position.set(-(length*s*0.2), (height*s) + idx*0.25 + lvl.yOffset, 0);
+            m2.position.set((length*s*0.2), (height*s) + idx*0.25 + lvl.yOffset, -(width*s*0.2));
+            parent.add(m1); parent.add(m2);
+            addRailing(m1, length*0.6, width, height*s + idx*0.25 + lvl.yOffset);
+            addRailing(m2, length, width*0.6, height*s + idx*0.25 + lvl.yOffset);
+          } else if (shape === 'multi-level') {
+            const geo = new THREE.BoxGeometry(length*s, 0.2, width*s);
+            const mesh = new THREE.Mesh(geo, deckMat.clone());
+            mesh.position.set(idx*0.5, (height*s) + idx*0.5 + lvl.yOffset, -idx*0.3);
+            parent.add(mesh);
+            addRailing(mesh, length, width, (height*s)+ idx*0.5 + lvl.yOffset);
+          }
+        });
+
+        // Stairs
+        const stairsType = document.getElementById('stairs-type').value;
+        const steps = +document.getElementById('deck-stair-steps').value;
+        if (stairsType !== 'none' && steps > 0) {
+          const stairMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.8 });
+          const stepDepth = 0.3, stepHeight = 0.2, stepWidth = Math.max(levels[0].width*s*0.4, 1.2);
+          for (let i=0; i<steps; i++){
+            const geo = new THREE.BoxGeometry(stepWidth, stepHeight, stepDepth);
+            const step = new THREE.Mesh(geo, stairMat);
+            step.position.set(-levels[0].length*s*0.45, (levels[0].height*s) - (steps-i-1)*stepHeight, levels[0].width*s*0.45 + i*stepDepth);
+            parent.add(step);
+          }
+        }
+
+        if (document.getElementById('deck-pergola').checked) addPergola(levels[0], parent, s);
+        if (document.getElementById('deck-bench').checked) addBench(levels[0], parent, s);
+      }
+      function addRailing(mesh, length, width, yTop){
+        const type = document.getElementById('railing-type').value; if (type==='none') return;
+        const s = 0.3;
+        let color = 0x8B7355; if (type==='metal') color=0x888888; if (type==='glass') color=0xa0c4ff;
+        const mat = new THREE.MeshStandardMaterial({ color, transparent: type==='glass', opacity: type==='glass'?0.35:1 });
+        const railH = 1.0, t = 0.05;
+        const rails = new THREE.Group();
+        const front = new THREE.Mesh(new THREE.BoxGeometry(length*s, railH, t), mat); front.position.set(0, yTop+railH/2, width*s/2);
+        const back  = new THREE.Mesh(new THREE.BoxGeometry(length*s, railH, t), mat); back.position.set(0, yTop+railH/2, -width*s/2);
+        const left  = new THREE.Mesh(new THREE.BoxGeometry(t, railH, width*s), mat); left.position.set(-length*s/2, yTop+railH/2, 0);
+        const right = new THREE.Mesh(new THREE.BoxGeometry(t, railH, width*s), mat); right.position.set(length*s/2, yTop+railH/2, 0);
+        rails.add(front,back,left,right); mesh.add(rails);
+      }
+      function addPergola(lvl, group, s){
+        const postMat = new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness:0.8 });
+        const beamMat = new THREE.MeshStandardMaterial({ color: 0xA47234, roughness:0.7 });
+        const h = lvl.height*s + 1.0;
+        const pos = [
+          [-lvl.length*s/2+0.2, h, -lvl.width*s/2+0.2],
+          [ lvl.length*s/2-0.2, h, -lvl.width*s/2+0.2],
+          [-lvl.length*s/2+0.2, h,  lvl.width*s/2-0.2],
+          [ lvl.length*s/2-0.2, h,  lvl.width*s/2-0.2],
+        ];
+        pos.forEach(p=>{ const post = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.5, 0.15), postMat); post.position.set(p[0],p[1],p[2]); group.add(post); });
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(lvl.length*s-0.4, 0.1, 0.3), beamMat); beam.position.set(0, h+1.0, 0); group.add(beam);
+      }
+      function addBench(lvl, group, s){
+        const benchMat = new THREE.MeshStandardMaterial({ color: 0xA47234 });
+        const bench = new THREE.Mesh(new THREE.BoxGeometry(lvl.length*s*0.6, 0.15, 0.4), benchMat);
+        bench.position.set(0, lvl.height*s+0.25, -lvl.width*s/2+0.5); group.add(bench);
+      }
+      function selectMaterial(evt,mat){
+        document.querySelectorAll('.material-option').forEach(m=>m.classList.remove('selected'));
+        evt.currentTarget.classList.add('selected'); window.selectedMaterial=mat; rebuild3D(); saveDeckState();
+      }
+
+      /* ---------------- Deck Estimator ---------------- */
+      function calculateDeckEstimate(){
+        const length = +document.getElementById('deck-length').value;
+        const width = +document.getElementById('deck-width').value;
+        const height = +document.getElementById('deck-height').value;
+        const area = length*width;
+        const material = window.selectedMaterial || 'PT';
+        const railingType = document.getElementById('railing-type').value;
+        const stairsType = document.getElementById('stairs-type').value;
+        const steps = +document.getElementById('deck-stair-steps').value;
+        const pergola = document.getElementById('deck-pergola').checked;
+        const bench = document.getElementById('deck-bench').checked;
+        const lighting = document.getElementById('deck-lighting').checked;
+
+        const rates = {
+          labor: +document.getElementById('rate-labor').value,
+          decking: +document.getElementById('rate-decking').value,
+          railing: +document.getElementById('rate-railing').value,
+          stairs: +document.getElementById('rate-stairs').value,
+          hardware: +document.getElementById('rate-hardware').value,
+          deliveryPct: +document.getElementById('rate-delivery').value/100
+        };
+        const ohPct = +document.getElementById('oh-pct').value/100;
+        const profitPct = +document.getElementById('profit-pct').value/100;
+        const wastePct = +document.getElementById('waste-pct').value/100;
+
+        const railingLF = railingType==='none' ? 0 : (length+width)*2;
+        const deckingCost = area*rates.decking;
+        const railingCost = railingLF*rates.railing;
+        const stairsCost = stairsType==='none'?0:steps*rates.stairs;
+        const hardwareCost = area*rates.hardware;
+        const addonsCost = (pergola?2500:0)+(bench?800:0)+(lighting?600:0);
+        const baseMat = deckingCost+railingCost+stairsCost+hardwareCost+addonsCost;
+        const waste = baseMat*wastePct;
+        const delivery = baseMat*rates.deliveryPct;
+        const materialsTotal = baseMat+waste+delivery;
+        const laborTotal = area*rates.labor;
+        const subtotal = materialsTotal+laborTotal+150+200;
+        const overhead = subtotal*ohPct;
+        const profit = subtotal*profitPct;
+        const total = subtotal+overhead+profit;
+        const cpsf = total/Math.max(1, area);
+
+        const resultsDiv = document.getElementById('deck-results');
+        resultsDiv.style.display='block';
+        resultsDiv.innerHTML = `
+          <h3>💰 Deck Estimate</h3>
+          <div>Materials: $${materialsTotal.toFixed(2)}</div>
+          <div>Labor: $${laborTotal.toFixed(2)}</div>
+          <div>Overhead: $${overhead.toFixed(2)}</div>
+          <div>Profit: $${profit.toFixed(2)}</div>
+          <div class="hr"></div>
+          <strong>Total: $${total.toFixed(2)}</strong><br>
+          <span class="tag">Cost per sq ft: $${cpsf.toFixed(2)}</span>
+        `;
+        window.lastEstimate={length,width,height,area,total,material,cpsf}; updateKPI();
+      }
+      function applyPresetRates(p){
+        const sets = {
+          urban: { labor: 15, decking: 1.65, railing: 6.0, stairs: 15, hardware: 0.7, deliveryPct: 7, oh: 18, profit: 22, waste: 12 },
+          suburban: { labor: 12, decking: 1.25, railing: 4.5, stairs: 12, hardware: 0.5, deliveryPct: 5, oh: 15, profit: 20, waste: 10 },
+          rural: { labor: 10, decking: 1.05, railing: 3.8, stairs: 10, hardware: 0.45, deliveryPct: 4, oh: 12, profit: 18, waste: 8 }
+        }[p];
+        if (!sets) return;
+        document.getElementById('rate-labor').value = sets.labor;
+        document.getElementById('rate-decking').value = sets.decking;
+        document.getElementById('rate-railing').value = sets.railing;
+        document.getElementById('rate-stairs').value = sets.stairs;
+        document.getElementById('rate-hardware').value = sets.hardware;
+        document.getElementById('rate-delivery').value = sets.deliveryPct;
+        document.getElementById('oh-pct').value = sets.oh;
+        document.getElementById('profit-pct').value = sets.profit;
+        document.getElementById('waste-pct').value = sets.waste;
+      }
+
+      /* ---------------- Multi-Service scenes ---------------- */
+      function initExterior3D(){ createViewer('exterior-3d'); rebuildExterior3D(); }
+      function rebuildExterior3D(){
+        const v = viewers['exterior-3d']; if (!v) return;
+        v.group.clear();
+        const w = +document.getElementById('ext-wall-width').value;
+        const h = +document.getElementById('ext-wall-height').value;
+        const s = 0.3;
+        const siding = document.getElementById('ext-siding').value;
+        const colors = { vinyl: 0xb0bec5, 'fiber-cement': 0x9aa5b1, wood: 0xa47551, brick: 0x9c4a3c };
+        const mat = new THREE.MeshStandardMaterial({ color: colors[siding] || 0xb0bec5, roughness: 0.8 });
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(w*s, h*s, 0.3), mat); wall.position.set(0, h*s/2, 0);
+        const win = new THREE.Mesh(new THREE.BoxGeometry(w*s*0.3, h*s*0.3, 0.28), new THREE.MeshStandardMaterial({ color: 0x99d1ff, transparent:true, opacity:0.5 })); win.position.set(-w*s*0.2, h*s*0.6, 0.02);
+        const door = new THREE.Mesh(new THREE.BoxGeometry(w*s*0.2, h*s*0.4, 0.28), new THREE.MeshStandardMaterial({ color: 0x444 })); door.position.set(w*s*0.25, h*s*0.2, 0.02);
+        v.group.add(wall, win, door);
+      }
+      function calcExteriorEstimate(){
+        const w = +document.getElementById('ext-wall-width').value;
+        const h = +document.getElementById('ext-wall-height').value;
+        const area = w*h;
+        const siding = document.getElementById('ext-siding').value;
+        const rateMap = { vinyl: 5.5, 'fiber-cement': 7.25, wood: 6.75, brick: 8.5 };
+        const labor = 3.5;
+        const materials = area*(rateMap[siding]||5.5);
+        const total = materials + area*labor;
+        const res = document.getElementById('exterior-results');
+        res.style.display='block';
+        res.innerHTML = `<h3>Exterior Estimate</h3><div>Materials: $${materials.toFixed(2)}</div><div>Labor: $${(area*labor).toFixed(2)}</div><strong>Total: $${total.toFixed(2)}</strong>`;
+      }
+      function initKitchen3D(){ createViewer('kitchen-3d'); rebuildKitchen3D(); }
+      function rebuildKitchen3D(){
+        const v = viewers['kitchen-3d']; if (!v) return;
+        v.group.clear();
+        const L = +document.getElementById('kit-length').value;
+        const W = +document.getElementById('kit-width').value;
+        const cabs = document.getElementById('kit-cabs').value;
+        const s = 0.25;
+        const room = new THREE.Mesh(new THREE.BoxGeometry(L*s, 3, W*s), new THREE.MeshStandardMaterial({ color: 0xf3f4f6, side: THREE.BackSide })); room.position.set(0, 1.5, 0);
+        const colorMap = { 'stock': 0xd1d5db, 'semi-custom': 0xbfc9d6, 'custom': 0xa7b1c2 };
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(L*s*0.8, 0.9, 0.5), new THREE.MeshStandardMaterial({ color: colorMap[cabs] || 0xd1d5db })); cab.position.set(0, 0.45, -W*s/2 + 0.3);
+        const island = new THREE.Mesh(new THREE.BoxGeometry(L*s*0.4, 0.9, W*s*0.25), new THREE.MeshStandardMaterial({ color: 0x9ca3af })); island.position.set(0, 0.45, 0);
+        v.group.add(room, cab, island);
+      }
+      function calcKitchenEstimate(){
+        const L = +document.getElementById('kit-length').value;
+        const W = +document.getElementById('kit-width').value;
+        const cabs = document.getElementById('kit-cabs').value;
+        const counter = document.getElementById('kit-counter').value;
+        const area = L*W;
+        const cabRate = { 'stock': 120, 'semi-custom': 180, 'custom': 260 }[cabs] || 120;
+        const counterRate = { 'laminate': 35, 'granite': 75, 'quartz': 85 }[counter] || 35;
+        const labor = 18;
+        const materials = area*(cabRate*0.02) + area*(counterRate*0.01);
+        const total = materials + area*labor;
+        const res = document.getElementById('kitchen-results');
+        res.style.display='block';
+        res.innerHTML = `<h3>Kitchen Estimate</h3><div>Materials: $${materials.toFixed(2)}</div><div>Labor: $${(area*labor).toFixed(2)}</div><strong>Total: $${total.toFixed(2)}</strong>`;
+      }
+      function initBath3D(){ createViewer('bath-3d'); rebuildBath3D(); }
+      function rebuildBath3D(){
+        const v = viewers['bath-3d']; if (!v) return;
+        v.group.clear();
+        const L = +document.getElementById('bath-length').value;
+        const W = +document.getElementById('bath-width').value;
+        const shower = document.getElementById('bath-shower').value;
+        const s = 0.25;
+        const room = new THREE.Mesh(new THREE.BoxGeometry(L*s, 2.8, W*s), new THREE.MeshStandardMaterial({ color: 0xfafafa, side: THREE.BackSide })); room.position.set(0, 1.4, 0);
+        const tubColor = { 'tub-shower': 0xffffff, 'walk-in': 0xcccccc, 'custom-tile': 0x99d1ff }[shower] || 0xffffff;
+        const fixture = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 0.8), new THREE.MeshStandardMaterial({ color: tubColor })); fixture.position.set(-L*s*0.3, 0.3, W*s*0.3);
+        const vanity = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 0.5), new THREE.MeshStandardMaterial({ color: 0x9ca3af })); vanity.position.set(L*s*0.2, 0.45, -W*s*0.3);
+        v.group.add(room, fixture, vanity);
+      }
+      function calcBathEstimate(){
+        const L = +document.getElementById('bath-length').value;
+        const W = +document.getElementById('bath-width').value;
+        const shower = document.getElementById('bath-shower').value;
+        const area = L*W;
+        const tier = { 'tub-shower': 75, 'walk-in': 110, 'custom-tile': 160 }[shower] || 75;
+        const labor = 22;
+        const materials = area*(tier*0.02);
+        const total = materials + area*labor;
+        const res = document.getElementById('bath-results');
+        res.style.display='block';
+        res.innerHTML = `<h3>Bathroom Estimate</h3><div>Materials: $${materials.toFixed(2)}</div><div>Labor: $${(area*labor).toFixed(2)}</div><strong>Total: $${total.toFixed(2)}</strong>`;
+      }
+
+      /* ---------------- Remodeling Workspace ---------------- */
+      function initRemodel3D(){
+        const v = createViewer('remodel-3d');
+        // Try to create loader from helpers; show banner when missing
+        if (window.__XRHelpers && window.__XRHelpers.GLTFLoader) {
+          try { v.gltfLoader = new window.__XRHelpers.GLTFLoader(); }
+          catch(e){ v.gltfLoader = null; }
+        }
+        if (!v.gltfLoader){
+          setBanner('gltf-banner', 'GLTFLoader not available. If you are offline or opened via file://, start a local server (e.g., python3 -m http.server) and/or go online to load models.');
+        } else {
+          setBanner('gltf-banner', 'GLTFLoader ready. Paste a .glb URL to import.', true);
+          document.getElementById('gltf-banner').className = 'banner ok';
+        }
+        v.roomRoot = new THREE.Group(); v.scene.add(v.roomRoot);
+        rebuildRemodel3D();
+        refreshRoomsList();
+      }
+      function rebuildRemodel3D(){
+        const v = viewers['remodel-3d']; if (!v) return;
+        v.group.clear();
+        v.roomRoot?.clear?.();
+
+        const L = parseFloat(document.getElementById('rm-length').value)||12;
+        const W = parseFloat(document.getElementById('rm-width').value)||10;
+        const s = 0.3;
+        const room = new THREE.Mesh(new THREE.BoxGeometry(L*s, 3, W*s), new THREE.MeshStandardMaterial({ color: 0xf3f4f6, side: THREE.BackSide }));
+        room.position.set(0, 1.5, 0);
+        v.group.add(room);
+
+        (v.assets||[]).forEach(a => v.roomRoot.add(a));
+      }
+      function addRoom(){
+        const room = {
+          id: Date.now(),
+          name: document.getElementById('rm-name').value || 'Room',
+          L: parseFloat(document.getElementById('rm-length').value)||12,
+          W: parseFloat(document.getElementById('rm-width').value)||10,
+          scope: document.getElementById('rm-scope').value||''
+        };
+        const rooms = JSON.parse(localStorage.getItem('rooms')||'[]');
+        const idx = rooms.findIndex(r=>r.name.toLowerCase()===room.name.toLowerCase());
+        if (idx>=0) rooms[idx]=room; else rooms.push(room);
+        localStorage.setItem('rooms', JSON.stringify(rooms));
+        rebuildRemodel3D();
+        refreshRoomsList();
+      }
+      function clearRooms(){ localStorage.removeItem('rooms'); refreshRoomsList(); }
+      function refreshRoomsList(){
+        const wrap = document.getElementById('remodel-list'); if (!wrap) return;
+        const rooms = JSON.parse(localStorage.getItem('rooms')||'[]');
+        if (!rooms.length){ wrap.innerHTML = '<span class="small">No rooms yet.</span>'; return; }
+        wrap.innerHTML = rooms.map(r=>`<div><strong>${r.name}</strong> — ${r.L}×${r.W} ft<br><span class="small">${r.scope.replace(/</g,'&lt;')}</span></div>`).join('<div class="hr"></div>');
+      }
+      async function addAssetFromURL(){
+        const url = document.getElementById('gltf-url').value.trim();
+        if (!url){ alert('Enter a GLTF/GLB URL'); return; }
+        const v = viewers['remodel-3d']; if (!v) { alert('Viewer not ready'); return; }
+        if (!v.gltfLoader){
+          alert('GLTFLoader not available. See yellow banner above for how to enable it.');
+          return;
+        }
+        try {
+          const gltf = await v.gltfLoader.loadAsync(url);
+          const model = gltf.scene || gltf.scenes?.[0];
+          if (!model) throw new Error('No scene in GLTF');
+          model.traverse(n=>{ if (n.isMesh){ n.castShadow = true; n.receiveShadow = true; } });
+          model.position.set(0, 0, 0);
+          v.assets.push(model);
+          v.roomRoot.add(model);
+          setBanner('gltf-banner', '✅ Asset added. Use VR grips to move/scale/rotate.', true);
+          document.getElementById('gltf-banner').className = 'banner ok';
+        } catch(e){
+          console.warn(e);
+          setBanner('gltf-banner', '❌ Failed to load GLB. If remote, ensure CORS is enabled. If local, serve via http://localhost.', true);
+          document.getElementById('gltf-banner').className = 'banner err';
+        }
+      }
+
+      /* ---------------- Local Storage helpers ---------------- */
+      function lsGet(key){ try { return JSON.parse(localStorage.getItem(key)||'[]'); } catch(e){ return []; } }
+      function lsSet(key,val){ localStorage.setItem(key,JSON.stringify(val)); }
+
+      function saveDeckState(){
+        const state={length:+document.getElementById('deck-length').value,width:+document.getElementById('deck-width').value,height:+document.getElementById('deck-height').value,shape:document.getElementById('deck-shape').value,material:window.selectedMaterial||'PT',levels};
+        localStorage.setItem('deckState',JSON.stringify(state));
+      }
+      function loadDeckState(){
+        const data=localStorage.getItem('deckState'); if(!data) return;
+        const s=JSON.parse(data);
+        document.getElementById('deck-length').value=s.length;
+        document.getElementById('deck-width').value=s.width;
+        document.getElementById('deck-height').value=s.height;
+        document.getElementById('deck-shape').value=s.shape;
+        window.selectedMaterial=s.material;
+        levels = Array.isArray(s.levels) && s.levels.length ? s.levels : levels;
+        document.getElementById('levels-panel').textContent = `Levels: ${levels.length}`;
+        updateDimLabel();
+      }
+
+      /* ---------------- Projects/Clients/Proposal/Invoices ---------------- */
+      function saveEstimateToProjects(){
+        if(!window.lastEstimate){ alert('Calculate an estimate first'); return; }
+        const client=prompt('Client name?')||'Client'; const name=prompt('Project name?')||'Project';
+        const projects=lsGet('projects'); projects.push({id:Date.now(),client,name,estimate:window.lastEstimate,date:new Date().toISOString()});
+        lsSet('projects',projects); loadProjects(); alert('✅ Project saved');
+      }
+      function loadProjects(){
+        const ul=document.getElementById('project-list'); if(!ul) return;
+        ul.innerHTML=''; const projects=lsGet('projects');
+        projects.forEach(p=>{ const li=document.createElement('li'); li.textContent=`${p.name} (${p.client}) - $${(p.estimate.total||0).toFixed(2)}`; ul.appendChild(li); });
+        const kpiP = document.getElementById('kpi-projects'); if (kpiP) kpiP.textContent = projects.length;
+        const psf = projects.length ? (projects.reduce((a,p)=>a+(p.estimate.cpsf||0),0)/projects.length) : 0;
+        const kpiS = document.getElementById('kpi-psf'); if (kpiS) kpiS.textContent = `$${psf.toFixed(2)}`;
+        const last = projects.length ? new Date(projects[projects.length-1].date).toLocaleString() : '—';
+        const kpiL = document.getElementById('kpi-last'); if (kpiL) kpiL.textContent = last;
+      }
+      function clearProjects(){ localStorage.removeItem('projects'); loadProjects(); }
+      function exportProject(){
+        const data = { deckState: JSON.parse(localStorage.getItem('deckState')||'{}'), lastEstimate: window.lastEstimate||null, rooms: JSON.parse(localStorage.getItem('rooms')||'[]') };
+        const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `project-${Date.now()}.json`; a.click();
+      }
+      function importProject(){
+        const input = document.createElement('input'); input.type='file'; input.accept='application/json';
+        input.onchange = async (e)=>{ const file = e.target.files[0]; if(!file) return; const text = await file.text(); const data = JSON.parse(text);
+          if (data.deckState) localStorage.setItem('deckState', JSON.stringify(data.deckState));
+          if (data.rooms) localStorage.setItem('rooms', JSON.stringify(data.rooms));
+          window.lastEstimate = data.lastEstimate || null; loadDeckState(); rebuild3D(); refreshRoomsList(); rebuildRemodel3D(); alert('✅ Project imported'); };
+        input.click();
+      }
+      function exportAll(){
+        const keys = ['deckState','projects','clients','invoices','rooms']; const data = {}; keys.forEach(k=> data[k] = JSON.parse(localStorage.getItem(k)||'null'));
+        const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `designer-data-${Date.now()}.json`; a.click();
+      }
+      function handleImportFile(e){
+        const file = e.target.files[0]; if(!file) return;
+        const reader = new FileReader();
+        reader.onload = () => { try { const data = JSON.parse(reader.result); Object.keys(data||{}).forEach(k => localStorage.setItem(k, JSON.stringify(data[k]))); loadProjects(); loadClients(); refreshRoomsList(); rebuildRemodel3D(); alert('✅ Data imported'); } catch(err) { alert('Import failed'); } };
+        reader.readAsText(file);
+      }
+      function buildProposal(){
+        const client=document.getElementById('prop-client').value||'Client';
+        const title=document.getElementById('prop-title').value||'Project';
+        const scope=document.getElementById('prop-scope').value||'Scope of work will be defined.';
+        const estimate = window.lastEstimate ? `$${window.lastEstimate.total.toFixed(2)}` : 'N/A';
+        document.getElementById('proposal-preview').innerHTML = `<h3>${title}</h3><p>Prepared for ${client}</p><p><strong>Estimated Total:</strong> ${estimate}</p><div class="hr"></div><h4>Scope of Work</h4><p>${scope.replace(/\\n/g,'<br>')}</p>`;
+      }
+      function exportPDF(){ const element = document.getElementById('proposal-preview'); html2pdf().from(element).save(); }
+      function addLineItem(){
+        const tbody = document.querySelector('#line-items tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><input type="text" placeholder="Description"></td><td><input type="number" value="1" oninput="updateLineAmounts()"></td><td><input type="number" value="0" oninput="updateLineAmounts()"></td><td class="amount-cell">$0.00</td><td><button class="btn btn-danger" onclick="removeLineItem(event)">✖</button></td>`;
+        tbody.appendChild(tr); updateLineAmounts();
+      }
+      function removeLineItem(e){ e.target.closest('tr').remove(); updateLineAmounts(); }
+      function updateLineAmounts(){
+        document.querySelectorAll('#line-items tbody tr').forEach(row=>{
+          const qty = parseFloat(row.querySelector('td:nth-child(2) input').value)||0;
+          const unit = parseFloat(row.querySelector('td:nth-child(3) input').value)||0;
+          row.querySelector('.amount-cell').textContent = `$${(qty*unit).toFixed(2)}`;
+        });
+      }
+      function computeLineItemsTotal(){
+        return Array.from(document.querySelectorAll('#line-items tbody tr')).reduce((sum,row)=>{
+          const qty = parseFloat(row.querySelector('td:nth-child(2) input').value)||0;
+          const unit = parseFloat(row.querySelector('td:nth-child(3) input').value)||0;
+          return sum+qty*unit;
+        },0);
+      }
+      function generateInvoice(){
+        const client = document.getElementById('invoice-client').value||'Client';
+        const number = document.getElementById('invoice-number').value||'INV';
+        const subtotal = computeLineItemsTotal();
+        const taxPct = parseFloat(document.getElementById('invoice-tax').value)||0;
+        const theDiscount = parseFloat(document.getElementById('invoice-discount').value)||0;
+        const tax = subtotal*(taxPct/100);
+        const total = subtotal+tax-theDiscount;
+        document.getElementById('invoice-preview').innerHTML = `<h3>Invoice ${number}</h3><p>Client: ${client}</p><p>Subtotal: $${subtotal.toFixed(2)}</p><p>Tax (${taxPct}%): $${tax.toFixed(2)}</p><p>Discount: $${theDiscount.toFixed(2)}</p><strong>Total: $${total.toFixed(2)}</strong>`;
+      }
+      function saveInvoice(){
+        const invoices = lsGet('invoices');
+        invoices.push({id:Date.now(),client:document.getElementById('invoice-client').value||'Client',number:document.getElementById('invoice-number').value||'INV',html:document.getElementById('invoice-preview').innerHTML});
+        lsSet('invoices',invoices); alert('✅ Invoice saved locally');
+      }
+      function prefillFromEstimate(){
+        if (!window.lastEstimate){ alert('Calculate deck estimate first'); return; }
+        const tbody = document.querySelector('#line-items tbody'); tbody.innerHTML='';
+        const entries = [
+          { d: 'Design & Permit Prep', q: 1, u: 350 },
+          { d: `Deck Construction (${window.lastEstimate.area} sqft)`, q: window.lastEstimate.area, u: (window.lastEstimate.cpsf||0) },
+        ];
+        entries.forEach(e=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td><input type="text" value="${e.d}"></td><td><input type="number" value="${e.q}" oninput="updateLineAmounts()"></td><td><input type="number" value="${e.u.toFixed(2)}" oninput="updateLineAmounts()"></td><td class="amount-cell">$0.00</td><td><button class="btn btn-danger" onclick="removeLineItem(event)">✖</button></td>`;
+          tbody.appendChild(tr);
+        });
+        updateLineAmounts();
+      }
+
+      /* ---------------- Settings ---------------- */
+      function applySettings(){
+        const showGrid = document.getElementById('settings-grid').checked;
+        const ambient = document.getElementById('settings-ambient').checked;
+        Object.values(viewers).forEach(v=>{
+          if (!v) return;
+          v.grid.visible = showGrid;
+          v.scene.traverse(o=>{ if (o.isHemisphereLight) o.intensity = ambient ? 0.9 : 0.4; });
+        });
+      }
+      function applyTheme(){
+        const theme = document.getElementById('settings-theme').value;
+        if (theme==='dark'){
+          document.documentElement.style.setProperty('--bg','#0b1220');
+          document.documentElement.style.setProperty('--card','#101828');
+          document.documentElement.style.setProperty('--text','#e5e7eb');
+          document.documentElement.style.setProperty('--muted','#a1a1aa');
+        } else {
+          document.documentElement.style.setProperty('--bg','#f4f6fa');
+          document.documentElement.style.setProperty('--card','#ffffff');
+          document.documentElement.style.setProperty('--text','#1f2937');
+          document.documentElement.style.setProperty('--muted','#6b7280');
+        }
+      }
+      function saveCompany(){
+        const company = { name: document.getElementById('company-name').value||'', logo: document.getElementById('company-logo').value||'' };
+        localStorage.setItem('company', JSON.stringify(company)); alert('✅ Company saved');
+      }
+
+      /* ---------------- WebXR: immersive-vr & immersive-ar ---------------- */
+      function toggleXRMenu(){
+        if (!navigator.xr){
+          setBanner('banner-warn','WebXR not supported in this browser or context. For AR, use HTTPS or localhost.', true);
+          return;
+        }
+        Promise.all([
+          navigator.xr.isSessionSupported('immersive-vr').catch(()=>false),
+          navigator.xr.isSessionSupported('immersive-ar').catch(()=>false)
+        ]).then(([vrSupported, arSupported])=>{
+          let msg = 'XR Options:\n';
+          let idx = 1; const map = {};
+          if (vrSupported){ msg += `${idx}. Enter immersive VR\n`; map[idx++] = 'vr'; }
+          if (arSupported){ msg += `${idx}. Enter immersive AR\n`; map[idx++] = 'ar'; }
+          if (idx===1){ setBanner('banner-warn','No immersive VR/AR support detected. Try Chrome/Edge on Quest/Android or Safari 17+ on iOS.', true); return; }
+          const pick = prompt(msg+'Choose a number'); if (!pick) return;
+          const sel = map[parseInt(pick,10)];
+          if (sel==='vr') enterVR();
+          else if (sel==='ar') enterAR();
+        }).catch(err=>{
+          console.warn(err);
+          setBanner('banner-error','Failed to query XR support. See console.', true);
+        });
+      }
+      function enterVR(){
+        const v = viewers['deck-3d']; if (!v) return;
+        updateXRBadge('requesting VR');
+        v.renderer.xr.enabled = true;
+        v.renderer.xr.setReferenceSpaceType('local-floor');
+        navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor','bounded-floor','hand-tracking'] })
+          .then(session=>{
+            v.renderer.xr.setSession(session);
+            updateXRBadge('VR active');
+            setBanner('banner-status','VR session started.', true);
+            document.getElementById('banner-status').className = 'banner ok';
+            session.addEventListener('end', ()=>{ updateXRBadge('idle'); setBanner('banner-status','VR session ended.', true); });
+          }).catch(err=>{ console.warn(err); updateXRBadge('idle'); setBanner('banner-error','VR session failed to start. See console for details.', true); });
+      }
+      function enterAR(){
+        const v = viewers['deck-3d']; if (!v) return;
+        updateXRBadge('requesting AR');
+        v.renderer.xr.enabled = true;
+        v.renderer.xr.setReferenceSpaceType('local');
+        navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['hit-test','dom-overlay'],
+          domOverlay: { root: v.container }
+        }).then(async session=>{
+          v.renderer.xr.setSession(session);
+          updateXRBadge('AR active');
+          setBanner('banner-status','AR session started. Move device to detect surfaces.', true);
+          document.getElementById('banner-status').className = 'banner ok';
+
+          const refSpace = await session.requestReferenceSpace('viewer');
+          const xrRefSpace = await v.renderer.xr.getSession().requestReferenceSpace('local');
+          let hitSource = null;
+          try { hitSource = await session.requestHitTestSource({ space: refSpace }); }
+          catch(e){ setBanner('banner-warn','AR hit-test not available on this device.', true); }
+
+          session.addEventListener('select', ()=>{
+            if (v.reticle && v.reticle.visible){
+              const marker = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.2, 16), new THREE.MeshStandardMaterial({ color: 0x44ff88 }));
+              marker.position.copy(v.reticle.position);
+              marker.rotation.x = -Math.PI/2;
+              v.scene.add(marker);
+            }
+          });
+
+          v.renderer.setAnimationLoop((time, frame)=>{
+            if (frame && hitSource){
+              const hitTestResults = frame.getHitTestResults(hitSource);
+              if (hitTestResults.length){
+                const pose = hitTestResults[0].getPose(xrRefSpace);
+                v.reticle.visible = true;
+                v.reticle.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+              } else {
+                v.reticle.visible = false;
+              }
+            }
+            v.controls.update();
+            v.renderer.render(v.scene, v.camera);
+          });
+
+          session.addEventListener('end', ()=>{ updateXRBadge('idle'); v.reticle.visible=false; v.renderer.setAnimationLoop(null); setBanner('banner-status','AR session ended.', true); });
+        }).catch(err=>{ console.warn(err); updateXRBadge('idle'); setBanner('banner-error','AR session failed to start. Use HTTPS or localhost and a supported device.', true); });
+      }
+
+      /* ---------------- Init ---------------- */
+      window.addEventListener('resize', ()=>{ ['deck-3d','exterior-3d','kitchen-3d','bath-3d','remodel-3d'].forEach(on3DResize); });
+      window.addEventListener('load', ()=>{
+        clearBanners();
+        // Context info banner
+        const usingFile = location.protocol === 'file:';
+        if (usingFile){
+          setBanner('banner-warn','You opened this file via file://. Some features (AR, GLTF imports) may not work. For best results, run a local server (e.g., python3 -m http.server) and open http://localhost.', true);
+        } else {
+          setBanner('banner-status','App loaded. If you are offline, GLTF import and AR helpers may be unavailable.', true);
+          document.getElementById('banner-status').className = 'banner ok';
+        }
+
+        // Initialize all viewers
+        initDeck3D(); initExterior3D(); initKitchen3D(); initBath3D(); initRemodel3D();
+        loadDeckState(); loadProjects(); loadClients(); addLineItem(); updateDimLabel();
+      });
+    </script>
+  </body>
+  </html>
